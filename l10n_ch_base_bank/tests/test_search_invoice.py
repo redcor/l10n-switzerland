@@ -7,7 +7,7 @@ from odoo.tests import tagged
 
 
 @tagged('post_install', '-at_install')
-class TestSearchInvoice(common.SavepointCase):
+class TestSearchmove(common.SavepointCase):
 
     @classmethod
     def setUpClass(cls):
@@ -39,8 +39,8 @@ class TestSearchInvoice(common.SavepointCase):
 
     def new_form(self):
         inv = Form(
-            self.env['account.invoice'],
-            view='account.invoice_form'
+            self.env['account.move'],
+            view='account.view_move_form'
         )
         inv.partner_id = self.partner
         inv.journal_id = self.bank_journal
@@ -53,7 +53,7 @@ class TestSearchInvoice(common.SavepointCase):
 
         invoice = inv_form.save()
 
-        found = self.env['account.invoice'].search(
+        found = self.env['account.move'].search(
             [('reference', operator, value)],
         )
         self.assertEqual(invoice, found)
@@ -63,7 +63,7 @@ class TestSearchInvoice(common.SavepointCase):
         inv_form.reference = reference
         inv_form.save()
 
-        found = self.env['account.invoice'].search(
+        found = self.env['account.move'].search(
             [('reference', operator, value)],
         )
         self.assertFalse(found)
@@ -122,19 +122,19 @@ class TestSearchInvoice(common.SavepointCase):
     def test_search_other_field(self):
         inv_form = self.new_form()
         inv_form.reference = '27 29990 00000 00001 70400 25019'
-        invoice = inv_form.save()
+        move = inv_form.save()
 
-        found = self.env['account.invoice'].search(
+        found = self.env['account.move'].search(
             [('partner_id', '=', self.partner.id)],
         )
-        self.assertEqual(invoice, found)
+        self.assertEqual(move, found)
 
     def test_search_unary_operator(self):
         inv_form = self.new_form()
         inv_form.reference = '27 29990 00000 00001 70400 25019'
-        invoice = inv_form.save()
+        move = inv_form.save()
 
-        found = self.env['account.invoice'].search(
+        found = self.env['account.move'].search(
             [('reference', 'like', '2999000000')],
         )
-        self.assertEqual(invoice, found)
+        self.assertEqual(move, found)
