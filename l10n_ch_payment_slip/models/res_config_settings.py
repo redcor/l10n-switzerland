@@ -60,3 +60,4 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.isr_header_partner_address',
         readonly=False,
     )
+

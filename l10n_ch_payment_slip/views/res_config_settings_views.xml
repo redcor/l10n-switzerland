@@ -72,8 +72,8 @@
 
                 </div>
               </div>
-              </xpath>
-            </field>
-          </record>
+          </xpath>
+        </field>
+    </record>
 
-        </odoo>
+</odoo>

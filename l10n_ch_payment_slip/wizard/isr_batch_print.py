@@ -10,7 +10,7 @@ class ISRBatchPrintWizard(models.TransientModel):
     _name = 'isr.batch.print.wizard'
     _description = 'Printing Wizard for payment slip'
 
-    invoice_ids = fields.Many2many(comodel_name='account.invoice',
+    invoice_ids = fields.Many2many(comodel_name='account.move',
                                    string='Invoices')
     error_message = fields.Text('Errors', readonly=True)
 
@@ -19,7 +19,7 @@ class ISRBatchPrintWizard(models.TransientModel):
         res = super(ISRBatchPrintWizard, self).default_get(fields)
         active_ids = self.env.context.get('active_ids')
         if active_ids:
-            invoices = self.env['account.invoice'].browse(active_ids)
+            invoices = self.env['account.move'].browse(active_ids)
             msg = self.check_generatable(invoices)
             if msg:
                 res['error_message'] = msg
@@ -33,7 +33,6 @@ class ISRBatchPrintWizard(models.TransientModel):
         except UserError as e:
             return e.name
 
-    @api.multi
     def print_payment_slips(self):
         if self.invoice_ids:
             return self.invoice_ids.print_isr()

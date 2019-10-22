@@ -2,12 +2,11 @@ odoo.define('l10n_ch_payment_slip.report', function (require) {
     'use strict';
 
     var ActionManager= require('web.ActionManager');
-    var crash_manager = require('web.crash_manager');
     var framework = require('web.framework');
 
 
     ActionManager.include({
-        ir_actions_report: function (action, options) {
+        _executeReportAction: function (action, options) {
             var report_url = '';
 
             if (action.report_type !== 'reportlab-pdf') {
@@ -23,7 +22,7 @@ odoo.define('l10n_ch_payment_slip.report', function (require) {
                 data:{
                     data: JSON.stringify([report_url, action.report_type]),
                 },
-                error: crash_manager.rpc_error.bind(crash_manager),
+                error: (error) => self.call('crash_manager', 'rpc_error', error),
                 success: function () {
                     if (action && options && !action.dialog) {
                         options.on_close();

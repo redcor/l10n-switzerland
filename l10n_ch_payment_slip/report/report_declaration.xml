@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<openerp>
+<odoo>
   <data>
 
     <record id="paperformat_paymentslip" model="report.paperformat">
@@ -18,7 +18,7 @@
 
     <report
         id="one_slip_per_page_from_invoice"
-        model="account.invoice"
+        model="account.move"
         string="Payment Slip"
         report_type="reportlab-pdf"
         name="l10n_ch_payment_slip.one_slip_per_page_from_invoice"
@@ -30,4 +30,4 @@
         <field name="paperformat_id" ref="l10n_ch_payment_slip.paperformat_paymentslip"/>
     </record>
   </data>
-</openerp>
+</odoo>

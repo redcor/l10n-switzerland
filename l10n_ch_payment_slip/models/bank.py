@@ -26,3 +26,4 @@ class ResPartnerBank(models.Model):
     print_bank = fields.Boolean('Print Bank on ISR')
     print_account = fields.Boolean('Print Account Number on ISR')
     print_partner = fields.Boolean('Print Partner Address on ISR')
+

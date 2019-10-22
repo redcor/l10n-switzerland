@@ -20,14 +20,13 @@ class AccountMoveLine(models.Model):
     #     self.env['account.move.line'].search([('invoice_id', '=', [xxx])])
     # for each invoice validation.
     invoice_id = fields.Many2one(
-        'account.invoice', oldname="invoice", index=True
+        'account.move', index=True
     )
 
 
 class FutureAccountInvoice(models.Model):
-
     """Rewrite field l10n_ch_isr_subscription to get the right field"""
-    _inherit = 'account.invoice'  # pylint:disable=R7980
+    _inherit = 'account.move'  # pylint:disable=R7980
 
     l10n_ch_isr_subscription = fields.Char(
         compute='_compute_l10n_ch_isr_subscription',
@@ -46,12 +45,11 @@ class FutureAccountInvoice(models.Model):
     )
 
     @api.depends(
-        'partner_bank_id.l10n_ch_isr_subscription_eur',
-        'partner_bank_id.l10n_ch_isr_subscription_chf')
+        'invoice_partner_bank_id.l10n_ch_isr_subscription_eur',
+        'invoice_partner_bank_id.l10n_ch_isr_subscription_chf')
     def _compute_l10n_ch_isr_subscription(self):
         """ Computes the ISR subscription identifying your company or the bank
         that allows to generate ISR. And formats it accordingly
-
         """
 
         def _format_isr_subscription_scanline(isr_subscription):
@@ -64,8 +62,8 @@ class FutureAccountInvoice(models.Model):
         for record in self:
             isr_subs = False
             isr_subs_formatted = False
-            if record.partner_bank_id:
-                bank_acc = record.partner_bank_id
+            if record.invoice_partner_bank_id:
+                bank_acc = record.invoice_partner_bank_id
                 if record.currency_id.name == 'EUR':
                     isr_subscription = bank_acc.l10n_ch_isr_subscription_eur
                 elif record.currency_id.name == 'CHF':
@@ -86,11 +84,11 @@ class FutureAccountInvoice(models.Model):
 class AccountInvoice(models.Model):
     """Add ISR (Swiss payment vector)."""
 
-    _inherit = "account.invoice"
+    _inherit = "account.move"
 
     reference = fields.Char(copy=False)
 
-    partner_bank_id = fields.Many2one(
+    invoice_partner_bank_id = fields.Many2one(
         'res.partner.bank',
         'Bank Account',
         help='The partner bank account to pay\n'
@@ -100,15 +98,9 @@ class AccountInvoice(models.Model):
     isr_reference = fields.Text(
         string='ISR ref',
         compute='_compute_full_isr_name',
-        oldname='bvr_reference',
         store=True,
     )
-
-    slip_ids = fields.One2many(
-        string='Related slip',
-        comodel_name='l10n_ch.payment_slip',
-        inverse_name='invoice_id'
-    )
+    slip_ids = fields.One2many('l10n_ch.payment_slip', 'invoice_id')
 
     @api.depends('slip_ids', 'state')
     def _compute_full_isr_name(self):
@@ -118,7 +110,7 @@ class AccountInvoice(models.Model):
         :rtype: str
         """
         for rec in self:
-            if (rec.state not in ('open', 'paid') or
+            if (rec.state not in 'posted' or
                     not rec.slip_ids):
                 continue
             rec.isr_reference = ', '.join(x.reference
@@ -133,7 +125,7 @@ class AccountInvoice(models.Model):
         """
         move_line_model = self.env['account.move.line']
         return move_line_model.search(
-            [('move_id', '=', self.move_id.id),
+            [('move_id', '=', self.id),
              ('account_id.user_type_id.type', 'in',
               ['receivable', 'payable'])]
         )
@@ -161,8 +153,7 @@ class AccountInvoice(models.Model):
         self._update_ref_on_account_analytic_line(ref, move_line.move_id.id)
         self.env.cache.invalidate()
 
-    @api.multi
-    def invoice_validate(self):
+    def post(self):
         """ Copy the ISR reference in the transaction_ref of move lines.
 
         For customers invoices: the ISR reference is computed using
@@ -188,13 +179,12 @@ class AccountInvoice(models.Model):
                     ref = pay_slip.reference
                     self._action_isr_number_move_line(pay_slip.move_line_id,
                                                       ref)
-        return super(AccountInvoice, self).invoice_validate()
+        return super(AccountInvoice, self).post()
 
-    @api.multi
     def print_isr(self):
         self._check_isr_generatable()
         self.write({
-            'sent': True
+            'invoice_sent': True
         })
         report_name = 'l10n_ch_payment_slip.one_slip_per_page_from_invoice'
         docids = self.ids
@@ -202,14 +192,13 @@ class AccountInvoice(models.Model):
             report_name)
         return act_report.report_action(docids)
 
-    @api.multi
     def _check_isr_generatable(self):
         errors = []
         for inv in self:
             msg = []
             if inv.state in ('draft', 'cancel'):
                 msg.append(_('- The invoice must be confirmed.'))
-            bank_acc = inv.partner_bank_id
+            bank_acc = inv.invoice_partner_bank_id
             if not bank_acc:
                 msg.append(_('- The invoice needs a partner bank account.'))
             else:
@@ -219,8 +208,8 @@ class AccountInvoice(models.Model):
                           ' ISR subscription number.'
                           ).format(bank_acc.acc_number))
             if msg:
-                if inv.number:
-                    invoice = 'Invoice %s :\n' % inv.number
+                if inv.name:
+                    invoice = 'Invoice %s :\n' % inv.name
                 else:
                     invoice = 'Invoice (%s) :\n' % inv.partner_id.name
 
@@ -228,7 +217,6 @@ class AccountInvoice(models.Model):
         if errors:
             raise exceptions.UserError('\n'.join(errors))
 
-    @api.multi
     def action_invoice_draft(self):
         # TODO need refactoring
         res = super().action_invoice_draft()
@@ -242,7 +230,7 @@ class AccountInvoice(models.Model):
         if report_payment_slip and report_payment_slip.attachment:
             for invoice in self:
                 with invoice.env.do_in_draft():
-                    invoice.number, invoice.state = invoice.move_name, 'open'
+                    invoice.name, invoice.state = invoice.move_name, 'open'
                     attachment = self.env.ref(
                         'l10n_ch_payment_slip.one_slip_per_page_from_invoice'
                     ).retrieve_attachment(invoice)

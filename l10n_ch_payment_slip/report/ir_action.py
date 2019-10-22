@@ -37,7 +37,6 @@ class IrActionsReportReportlab(models.Model):
     report_type = fields.Selection(selection_add=[('reportlab-pdf',
                                                    'Report renderer')])
 
-    @api.multi
     def _generate_one_slip_per_page_from_invoice_pdf(self, res_ids):
         """Generate payment slip PDF(s) from report model.
 
@@ -48,7 +47,7 @@ class IrActionsReportReportlab(models.Model):
         """
         user_model = self.env['res.users']
         slip_model = self.env['l10n_ch.payment_slip']
-        invoice_model = self.env['account.invoice']
+        invoice_model = self.env['account.move']
         company = user_model.browse(self.env.uid).company_id
         invoices = invoice_model.browse(res_ids)
 
@@ -109,7 +108,6 @@ class IrActionsReportReportlab(models.Model):
             )
         return report
 
-    @api.multi
     def render_reportlab_pdf(self, res_ids=None, data=None):
         if (self.report_name != 'l10n_ch_payment_slip.'
                 'one_slip_per_page_from_invoice') or not res_ids:

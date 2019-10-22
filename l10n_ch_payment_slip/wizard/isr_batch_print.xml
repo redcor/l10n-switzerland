@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="isr_batch_print_view" model="ir.ui.view">
+    <data>
+        <record id="isr_batch_print_view" model="ir.ui.view">
         <field name="name">ISR Batch Print Wizard</field>
         <field name="model">isr.batch.print.wizard</field>
         <field name="type">form</field>
@@ -22,13 +23,14 @@
         </field>
     </record>
 
-    <act_window id="wizard_isr_batch_print"
-        multi="True"
-        key2="client_action_multi"
+    <act_window
+        id="wizard_isr_batch_print"
+        binding_views="form"
         name="ISR Batch Print"
         res_model="isr.batch.print.wizard"
-        src_model="account.invoice"
+        binding_model="account.move"
         view_mode="form"
         target="new"/>
+    </data>
 
 </odoo>

@@ -76,10 +76,10 @@ class PaymentSlip(models.Model):
                             readonly=True)
 
     invoice_id = fields.Many2one(string='Related invoice',
-                                 related='move_line_id.invoice_id',
+                                 related='move_line_id.move_id',
                                  store=True,
                                  readonly=True,
-                                 comodel_name='account.invoice')
+                                 comodel_name='account.move')
 
     slip_image = fields.Binary('Slip Image',
                                readonly=True,
@@ -103,10 +103,10 @@ class PaymentSlip(models.Model):
         :return: True if we can generate a payment slip
         :rtype: bool
         '''
-        invoice = move_line.invoice_id
+        invoice = move_line.move_id
         if not invoice:
             return False
-        return invoice.partner_bank_id and invoice.l10n_ch_isr_subscription
+        return invoice.invoice_partner_bank_id and invoice.l10n_ch_isr_subscription
 
     def _get_isr_subscription_number(self):
         """Fetch the current slip bank adherent number.
@@ -116,11 +116,11 @@ class PaymentSlip(models.Model):
         """
         self.ensure_one()
         move_line = self.move_line_id
-        return move_line.invoice_id.l10n_ch_isr_subscription or ''
+        return move_line.move_id.l10n_ch_isr_subscription or ''
 
     def _get_isrb_id_number(self):
         self.ensure_one()
-        partner_bank = self.move_line_id.invoice_id.partner_bank_id
+        partner_bank = self.move_line_id.move_id.invoice_partner_bank_id
         return partner_bank.l10n_ch_isrb_id_number or ''
 
     def _compute_amount_hook(self):
@@ -150,7 +150,7 @@ class PaymentSlip(models.Model):
 
     def _get_partner_number(self):
         move_line = self.move_line_id
-        partner_ref = move_line.invoice_id.partner_id.ref or ''
+        partner_ref = move_line.move_id.partner_id.ref or ''
         partner_number = self._compile_get_ref.sub('', partner_ref)
         if len(partner_number) > 7:
             extra = len(partner_number) - 7
@@ -160,8 +160,8 @@ class PaymentSlip(models.Model):
         )
 
     @api.depends('move_line_id',
-                 'move_line_id.invoice_id.number',
-                 'move_line_id.invoice_id.partner_id.ref')
+                 'move_line_id.move_id.name',
+                 'move_line_id.move_id.partner_id.ref')
     def _compute_ref(self):
         # pylint: disable=anomalous-backslash-in-string
         """Retrieve ISR reference from move line in order to print it
@@ -192,8 +192,8 @@ class PaymentSlip(models.Model):
             move_number = str(move_line.id)
             id_number = rec._get_isrb_id_number()
             partner_number = rec._get_partner_number()
-            if move_line.invoice_id.number:
-                compound = move_line.invoice_id.number + str(move_line.id)
+            if move_line.move_id.name:
+                compound = move_line.move_id.name + str(move_line.id)
                 move_number = rec._compile_get_ref.sub('', compound)
             # take only last digits of move if it exceed boundaries
             extra = len(move_number) + len(id_number) + PARTNER_NUM_SIZE - 26
@@ -248,7 +248,7 @@ class PaymentSlip(models.Model):
         line.extend(self.reference.replace(" ", ""))
         line.append('+')
         line.append(' ')
-        invoice = self.move_line_id.invoice_id
+        invoice = self.move_line_id.move_id
         line.extend(invoice.l10n_ch_isr_subscription)
         line.append('>')
         return line
@@ -374,20 +374,19 @@ class PaymentSlip(models.Model):
         :rtype: :py:class:`openerp.models.Model`
         """
         self.ensure_one()
-        invoice = self.move_line_id.invoice_id
+        invoice = self.move_line_id.move_id
         if hasattr(invoice, 'commercial_partner_id'):
             return invoice.commercial_partner_id
         else:
             return invoice.partner_id
 
-    @api.multi
     def _validate(self):
         """Check if the payment slip is ready to be printed
 
         :return: True or raise an exception
         :rtype: bool"""
         for rec in self:
-            invoice = rec.move_line_id.invoice_id
+            invoice = rec.move_line_id.move_id
             if not invoice:
                 raise exceptions.ValidationError(
                     _('No invoice related to move line %s'
@@ -496,15 +495,15 @@ class PaymentSlip(models.Model):
         com_partner = self.env['res.partner'].browse(com_partner_id)
         partner = self.env['res.partner'].new(com_partner.copy_data()[0])
         # use onchange to define our own temporary address format
-        with self.env.do_in_onchange():
+        # with self.env.do_in_onchange():
             # assign a fake country in case partner has no country set
             # NOTE: creating the country BEFORE assigning the format to it
             # is mandatory. If you create and assign the value at the same time
             # `address_format` won't be populated properly!
-            partner.country_id = self.env['res.country'].new()
-            partner.country_id.address_format = isr_address_format
-            address_lines = partner._display_address(
-                without_company=True).split("\n")
+        partner.country_id = self.env['res.country'].new()
+        partner.country_id.address_format = isr_address_format
+        address_lines = partner._display_address(
+            without_company=True).split("\n")
         return address_lines
 
     @api.model
@@ -578,7 +577,6 @@ class PaymentSlip(models.Model):
 
         canvas.drawText(text)
 
-    @api.multi
     def _draw_description_line(self, canvas, print_settings, initial_position,
                                font):
         """ Draw a line above the payment slip
@@ -601,14 +599,14 @@ class PaymentSlip(models.Model):
         x, y = initial_position
         # align with the address
         x += print_settings.isr_add_horz * inch
-        invoice = self.move_line_id.invoice_id
+        invoice = self.move_line_id.move_id
         date_maturity = self.move_line_id.date_maturity
         message = _('Payment slip related to invoice %s '
                     'due on the %s')
         fmt_date = format_date(self.env, date_maturity)
         canvas.setFont(font.name, font.size)
         canvas.drawString(x, y,
-                          message % (invoice.number, fmt_date))
+                          message % (invoice.name, fmt_date))
 
     @api.model
     def _draw_bank(self, canvas, print_settings, initial_position, font, bank):
@@ -856,10 +854,10 @@ class PaymentSlip(models.Model):
         default_font = self._get_text_font()
         small_font = self._get_small_text_font()
         amount_font = self._get_amount_font()
-        invoice = self.move_line_id.invoice_id
+        invoice = self.move_line_id.move_id
         scan_font = self._get_scan_line_text_font(company)
         isr_subs_number = invoice.l10n_ch_isr_subscription_formatted
-        bank_acc = invoice.partner_bank_id
+        bank_acc = invoice.invoice_partner_bank_id
         if a4:
             canvas_size = (595.27, 841.89)
         else:
@@ -876,15 +874,15 @@ class PaymentSlip(models.Model):
                                             print_settings,
                                             initial_position,
                                             default_font)
-            if invoice.partner_bank_id.print_partner:
-                if (invoice.partner_bank_id.print_account or
+            if invoice.invoice_partner_bank_id.print_partner:
+                if (invoice.invoice_partner_bank_id.print_account or
                         invoice.l10n_ch_isr_subscription):
                     initial_position = (0.05 * inch, 3.30 * inch)
                 else:
                     initial_position = (0.05 * inch, 3.75 * inch)
                 self._draw_address(canvas, print_settings, initial_position,
                                    default_font, company.partner_id)
-                if (invoice.partner_bank_id.print_account or
+                if (invoice.invoice_partner_bank_id.print_account or
                         invoice.l10n_ch_isr_subscription):
                     initial_position = (2.45 * inch, 3.30 * inch)
                 else:
@@ -911,7 +909,7 @@ class PaymentSlip(models.Model):
             self._draw_amount(canvas, print_settings,
                               (4.50 * inch, 2.0 * inch),
                               amount_font, frac_car)
-            if invoice.partner_bank_id.print_bank:
+            if invoice.invoice_partner_bank_id.print_bank:
                 self._draw_bank(canvas,
                                 print_settings,
                                 (0.05 * inch, 3.75 * inch),
@@ -922,7 +920,7 @@ class PaymentSlip(models.Model):
                                 (2.45 * inch, 3.75 * inch),
                                 default_font,
                                 bank_acc.bank_id)
-            if invoice.partner_bank_id.print_account:
+            if invoice.invoice_partner_bank_id.print_account:
                 self._draw_bank_account(canvas,
                                         print_settings,
                                         (1 * inch, 2.35 * inch),
