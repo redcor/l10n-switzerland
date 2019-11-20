@@ -71,6 +71,8 @@ Contributors
 * Lorenzo Battistini <lorenzo.battistini@agilebg.com>
 * Iryna Vyshnevska <i.vyshnevska@mobilunity.com>
 * Mykhailo Panarin <m.panarin@mobilunity.com>
+* Robert Rottermann <robert@redo2oo.ch>
+* Akshay Babu <akshay@cybrosys.in>
 
 Maintainers
 ~~~~~~~~~~~
