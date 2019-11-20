@@ -12,7 +12,6 @@ class AccountPaymentMethod(models.Model):
          'pain.001.001.03.ch.02 (credit transfer in Switzerland)'),
         ])
 
-    @api.multi
     def get_xsd_file_path(self):
         self.ensure_one()
         painv = self.pain_version
