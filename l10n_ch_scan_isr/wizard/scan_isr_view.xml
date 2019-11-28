@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="scan_isr_memory_form" model="ir.ui.view">
+      <field name="name">scan.isr.memory.form</field>
+      <field name="model">scan.isr</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml">
+        <form string="SCAN ISR">
+          <header>
+            <field name="state" widget="statusbar" readonly="1"/>
+          </header>
+          <group col="2" colspan="2" >
+            <separator string="Isr Scanning Result" colspan="2" />
+            <field name="isr_string" required="1" colspan="2" />
+            <separator string="Invoice Journal" colspan="2" />
+            <field name="journal_id" domain="[('type', '=', 'purchase')]" required="1" colspan="2"/>
+          </group>
+          <group col="2" colspan="2" attrs="{'invisible': [('state','!=', 'need_extra_info')]}" >
+            <newline/>
+            <separator string="Partner"  colspan="2" />
+            <field name="partner_id" attrs="{'required': [('state','=', 'need_extra_info')]}" colspan="2"/>
+            <separator string="Partner Bank Account"  colspan="2" />
+            <field name="bank_account_id" colspan="2" attrs="{'required': [('state','=', 'need_extra_info')]}"
+              domain="[('partner_id','parent_of', partner_id)]"/>
+          </group>
+          <footer>
+            <button name="validate_isr_string" string="Create" type="object" icon="fa-arrow-right" class="btn-primary" />
+            <button icon='fa-times-circle' special="cancel" string="Cancel" class="btn-default" />
+          </footer>
+        </form>
+      </field>
+    </record>
+
+    <record id="action_scan_isr" model="ir.actions.act_window">
+      <field name="name">Scan ISR</field>
+      <field name="res_model">scan.isr</field>
+      <field name="view_mode">form</field>
+      <field name='view_id' ref='scan_isr_memory_form' />
+      <field name="target">new</field>
+    </record>
+
+
+    <menuitem action="action_scan_isr"
+      id="menu_scan_isr"
+      parent="account.menu_finance_payables" />
+
+</odoo>
